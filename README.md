@@ -15,3 +15,5 @@ This will query whois and the propagated DNS records for the following informati
 - NS records
 
 The output also displays warnings if the domain is using nameservers known to obsure DNS records like CloudFlare and domaincontrol, if the domain has expired, and if the domains status is reported as anything other than 'Ok'
+
+Requires the dnspython and python-whois modules for Python 2.7, installable through pip
