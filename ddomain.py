@@ -57,7 +57,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable...")
+			ret.append("Unavailable/Missing")
 			return ret
 	
 	def get_rDNS(self):
@@ -69,7 +69,7 @@ class DNS_Object:
 				for rdata in rDNS:			
 					ret.append(str(rdata))
 			except:
-				ret.append("Unavailable...")
+				ret.append("Unavailable/Missing")
 		return ret
 
 	def get_MX(self):
@@ -80,7 +80,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable...")
+			ret.append("Unavailable/Missing")
 			return ret
 
 	def get_NS(self):
@@ -91,7 +91,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable...")
+			ret.append("Unavailable/Missing")
 			return ret
 
 	def get_whois(self):
@@ -108,11 +108,11 @@ class DNS_Object:
 		try:
 			SPF = self.res.query(self.domain, "TXT")
 			for rdata in SPF:
-				if "spf" in rdata.lower():
+				if "v=spf1" in str(rdata):
 				    ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable...")
+			ret.append("Unavailable/Missing")
 			return ret
 
 	def get_DKIM(self):
@@ -123,7 +123,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable...")
+			ret.append("Unavailable/Missing")
 			return ret
 
 	def get_DMARC(self):
@@ -134,7 +134,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable...")
+			ret.append("Unavailable/Missing")
 			return ret
 
 #===============================================================================
@@ -173,7 +173,7 @@ def PvW_NS_mismatch_check(DNS): #Propagated Vs Whois Nameserver mismatch check
 
 def whois_expiration(DNS):
         try:
-        	print(DNS.domain + " expires " + str(DNS.w.expiration_date[0]))
+        	print(DNS.domain.upper() + " expires " + str(DNS.w.expiration_date[0]))
                 if(DNS.w.expiration_date[0] < datetime.datetime.now()):
                 	print("\t[!] Domain expired")
      	except:
@@ -258,16 +258,13 @@ def print_records(DNS):
 def print_email_records(DNS):
 	print
 	for entry in DNS.MX:
-		print("\t[MX] " + entry)
-	print
+		print("[MX] " + entry)
 	for entry in DNS.SPF:
-		print("[SPF] " + entry)
-	print
-	for entry in DNS.DKIM:
-		print("[DKIM] " + entry)
-	print
+		print("\t[SPF] " + entry)
 	for entry in DNS.DMARC:
 		print("[DMARC] " + entry)
+	for entry in DNS.DKIM:
+		print("\t[DKIM] " + entry)
 	print
 
 
