@@ -1,10 +1,15 @@
 #!/usr/bin/python
 '''
 Custom DNS lookup Tool, DDomain
-Version 5.2
+Version 5.3
 
 Author:  Bleakbriar
-Last modified 12/09/2018
+Last modified 12/14/2018
+
+- Added -M for detailed mail records
+- Added sorting of MX records based on priority
+- Added -a to show 'all' lookups; does not include detailed mail records
+- Made UNAVAIL to replace manual entry of 'missing/unavailable' for easy modification
 
 '''
 
@@ -14,7 +19,9 @@ import whois
 import datetime
 import argparse
 
-# Updatable lists for use in Script======================================
+# ======================================================================
+# Unavailable record message
+UNAVAIL = "-----"
 # List of nameservers to warn user could be obscuring DNS of domain
 obscure = ["cloudflare", "domaincontrol"]
 # List of domain status keywords to check WHOIS for and warn if present
@@ -41,14 +48,42 @@ class DNS_Object:
 		self.A = self.get_A()
 		self.rDNS = self.get_rDNS()
 		self.MX = self.get_MX()
+		self.sort_MX()
 		self.NS = self.get_NS()
 
 	def get_mail_records(self):
 		self.MX = self.get_MX()
+		self.sort_MX()
 		self.SPF = self.get_SPF()
 		self.DKIM = self.get_DKIM()
 		self.DMARC = self.get_DMARC()
-	
+
+	def get_detailed_mail_records(self):
+		self.MX = self.get_MX()
+		self.sort_MX()
+		self.SPF = self.get_SPF()
+		self.DKIM = self.get_DKIM()
+		self.DMARC = self.get_DMARC()
+		self.MX_DNS = []
+		for record in self.MX:
+		    tmp_domain = record.split(" ")[-1] # Removes the priority value from the string
+		    tmp = DNS_Object(tmp_domain)
+		    tmp.get_main_records()
+		    self.MX_DNS.append(tmp)
+
+	def sort_MX(self):
+		priority = []
+		map = {}
+		for record in self.MX:
+		    if(record != UNAVAIL):
+			split_record = record.split(" ")
+			priority.append(split_record[0])
+			map[split_record[0]] = split_record[-1]
+		priority.sort(key=int)
+		self.MX = []
+		for i in priority:
+		    self.MX.append(i + " " + map[i])
+
 	def get_A(self):
 		ret = []
 		try:
@@ -57,7 +92,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable/Missing")
+			ret.append(UNAVAIL)
 			return ret
 	
 	def get_rDNS(self):
@@ -69,7 +104,7 @@ class DNS_Object:
 				for rdata in rDNS:			
 					ret.append(str(rdata))
 			except:
-				ret.append("Unavailable/Missing")
+				ret.append(UNAVAIL)
 		return ret
 
 	def get_MX(self):
@@ -80,7 +115,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable/Missing")
+			ret.append(UNAVAIL)
 			return ret
 
 	def get_NS(self):
@@ -91,7 +126,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable/Missing")
+			ret.append(UNAVAIL)
 			return ret
 
 	def get_whois(self):
@@ -112,7 +147,7 @@ class DNS_Object:
 				    ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable/Missing")
+			ret.append(UNAVAIL)
 			return ret
 
 	def get_DKIM(self):
@@ -123,7 +158,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable/Missing")
+			ret.append(UNAVAIL)
 			return ret
 
 	def get_DMARC(self):
@@ -134,7 +169,7 @@ class DNS_Object:
 				ret.append(str(rdata))
 			return ret
 		except:
-			ret.append("Unavailable/Missing")
+			ret.append(UNAVAIL)
 			return ret
 
 #===============================================================================
@@ -260,34 +295,65 @@ def print_email_records(DNS):
 	for entry in DNS.MX:
 		print("[MX] " + entry)
 	for entry in DNS.SPF:
-		print("\t[SPF] " + entry)
+		print("[SPF] " + entry)
 	for entry in DNS.DMARC:
 		print("[DMARC] " + entry)
 	for entry in DNS.DKIM:
-		print("\t[DKIM] " + entry)
+		print("[DKIM] " + entry)
 	print
+
+def print_detailed_email_records(DNS):
+	print
+	for i in range(len(DNS.MX)):
+	    print("[MX] " + DNS.MX[i])
+	    for j in DNS.MX_DNS[i].A:
+		print("\t[A] " + j)
+	    for j in DNS.MX_DNS[i].rDNS:
+		print("\t\t[rDNS] " + j)
+	for entry in DNS.SPF: 
+	    print("[SPF] " + entry)
+	for entry in DNS.DMARC:
+	    print("[DMARC] " + entry)
+	for entry in DNS.DKIM:
+	    print("[DKIM] " + entry)
+
 
 
 # Main Function ==============================================================
 def main(args): # Main function
 	# Banner
-	print("=" * 25)
-	print("*" + " " * 6 + "DDomain 5.2" + " " * 6 + "*")
-	print("=" * 25) 
+	print("+" + "=" * 37 + "+")
+	print("|" + " " * 37 + "|")
+	print("|" + " " * 10 + "[[ DDomain 5.3 ]]" + " " * 10 + "|")
+	print("|" + " " * 37 + "|")
+	print("+" + "=" * 37 + "+") 
 
 	DNS = DNS_Object(args.domain)
-	
-	if(args.m_flag):
+	if(args.all_flag):
+	    DNS.get_main_records()
 	    DNS.get_mail_records()
 	    DNS.get_whois_records()
 	    print_whois(DNS)
+	    print_records(DNS)
+	    print
 	    print_email_records(DNS)
 	else:
-	    DNS.get_main_records()
-	    DNS.get_whois_records()
-	    print_whois(DNS)
-	    print_records(DNS)
-	    print("\n")
+	    if(args.mail_flag):
+		DNS.get_mail_records()
+		DNS.get_whois_records()
+		print_whois(DNS)
+		print_email_records(DNS)
+	    elif(args.mail_d_flag):
+		DNS.get_detailed_mail_records()
+		DNS.get_whois_records()
+		print_whois(DNS)
+		print_detailed_email_records(DNS)
+	    else:
+		DNS.get_main_records()
+		DNS.get_whois_records()
+		print_whois(DNS)
+		print_records(DNS)
+		print("\n")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Multipurpose domain detective and DNS lookup tool')
@@ -295,7 +361,13 @@ if __name__ == "__main__":
 	# optional flags
 	parser.add_argument("-m", "--mail",
 		help="Query for email specific records: MX, SPF, DKIM, and MARC",
-		action="store_true", dest='m_flag', default=False)
+		action="store_true", dest='mail_flag', default=False)
+	parser.add_argument("-a", "--all",
+		help="Run full query on all records",
+		action="store_true", dest="all_flag", default=False)
+	parser.add_argument("-M", "--maildetail",
+		help="Query for detailed email related records",
+		action="store_true", dest="mail_d_flag", default=False)
 	args = parser.parse_args()
 
 	main(args)
