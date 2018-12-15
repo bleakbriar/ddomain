@@ -44,12 +44,13 @@ class DNS_Object:
 		self.w, self.whois_found = self.get_whois()
 		self.NS = self.get_NS()
 
-	def get_main_records(self):
+	def get_main_records(self, onlyA = False):
 		self.A = self.get_A()
 		self.rDNS = self.get_rDNS()
-		self.MX = self.get_MX()
-		self.sort_MX()
-		self.NS = self.get_NS()
+		if(not onlyA):
+		    self.MX = self.get_MX()
+		    self.sort_MX()
+		    self.NS = self.get_NS()
 
 	def get_mail_records(self):
 		self.MX = self.get_MX()
@@ -68,7 +69,7 @@ class DNS_Object:
 		for record in self.MX:
 		    tmp_domain = record.split(" ")[-1] # Removes the priority value from the string
 		    tmp = DNS_Object(tmp_domain)
-		    tmp.get_main_records()
+		    tmp.get_main_records(True)
 		    self.MX_DNS.append(tmp)
 
 	def sort_MX(self):
@@ -77,12 +78,16 @@ class DNS_Object:
 		for record in self.MX:
 		    if(record != UNAVAIL):
 			split_record = record.split(" ")
-			priority.append(split_record[0])
-			map[split_record[0]] = split_record[-1]
+			if split_record[0] in priority:
+			    map[split_record[0]].append(split_record[-1])
+			else:
+			    priority.append(split_record[0])
+			    map[split_record[0]] = [split_record[-1]]
 		priority.sort(key=int)
 		self.MX = []
 		for i in priority:
-		    self.MX.append(i + " " + map[i])
+		    for j in map[i]:
+			self.MX.append(str(i) + " " + str(j))
 
 	def get_A(self):
 		ret = []
@@ -281,39 +286,43 @@ def print_whois(DNS):
 
 def print_records(DNS):
         print
-        for entry in DNS.A:
-                print("[A] " + entry)
-        for entry in DNS.rDNS:
-                print("\t[rDNS] " + entry)
+	for i in range(len(DNS.A)):
+	    print('[A] %s  <==>  [rDNS] %s' % (DNS.A[i], DNS.rDNS[i]))
+	print
         for entry in DNS.MX:
-                print("[MX] " + entry)
-        for entry in DNS.NS:
-                print("\t[NS] " + entry)
+            print("[MX] " + entry)
+        print
+	for entry in DNS.NS:
+           print("[NS] " + entry)
 
-def print_email_records(DNS):
+def print_email_records(DNS, skipMX = False):
 	print
-	for entry in DNS.MX:
+	if(not skipMX):
+	    for entry in DNS.MX:
 		print("[MX] " + entry)
+	    print
 	for entry in DNS.SPF:
-		print("[SPF] " + entry)
-	for entry in DNS.DMARC:
-		print("[DMARC] " + entry)
-	for entry in DNS.DKIM:
-		print("[DKIM] " + entry)
+	    print("[SPF] " + entry)
 	print
+	for entry in DNS.DMARC:
+	    print("[DMARC] " + entry)
+	print
+	for entry in DNS.DKIM:
+	    print("[DKIM] " + entry)
 
 def print_detailed_email_records(DNS):
 	print
 	for i in range(len(DNS.MX)):
 	    print("[MX] " + DNS.MX[i])
-	    for j in DNS.MX_DNS[i].A:
-		print("\t[A] " + j)
-	    for j in DNS.MX_DNS[i].rDNS:
-		print("\t\t[rDNS] " + j)
+	    for j in range(len(DNS.MX_DNS[i].A)):
+		print('\t[A] %s  <==>  [rDNS] %s' % (DNS.MX_DNS[i].A[j], DNS.MX_DNS[i].rDNS[j]))
+	print
 	for entry in DNS.SPF: 
 	    print("[SPF] " + entry)
+	print
 	for entry in DNS.DMARC:
 	    print("[DMARC] " + entry)
+	print
 	for entry in DNS.DKIM:
 	    print("[DKIM] " + entry)
 
@@ -335,25 +344,27 @@ def main(args): # Main function
 	    DNS.get_whois_records()
 	    print_whois(DNS)
 	    print_records(DNS)
+	    print_email_records(DNS, True)
 	    print
-	    print_email_records(DNS)
 	else:
 	    if(args.mail_flag):
 		DNS.get_mail_records()
 		DNS.get_whois_records()
 		print_whois(DNS)
 		print_email_records(DNS)
+		print
 	    elif(args.mail_d_flag):
 		DNS.get_detailed_mail_records()
 		DNS.get_whois_records()
 		print_whois(DNS)
 		print_detailed_email_records(DNS)
+		print
 	    else:
 		DNS.get_main_records()
 		DNS.get_whois_records()
 		print_whois(DNS)
 		print_records(DNS)
-		print("\n")
+		print
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Multipurpose domain detective and DNS lookup tool')
