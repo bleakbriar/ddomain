@@ -4,12 +4,7 @@ Custom DNS lookup Tool, DDomain
 Version 5.3
 
 Author:  Bleakbriar
-Last modified 12/14/2018
-
-- Added -M for detailed mail records
-- Added sorting of MX records based on priority
-- Added -a to show 'all' lookups; does not include detailed mail records
-- Made UNAVAIL to replace manual entry of 'missing/unavailable' for easy modification
+Last modified 12/21/2018
 
 '''
 
@@ -85,9 +80,12 @@ class DNS_Object:
 			    map[split_record[0]] = [split_record[-1]]
 		priority.sort(key=int)
 		self.MX = []
-		for i in priority:
-		    for j in map[i]:
-			self.MX.append(str(i) + " " + str(j))
+		if len(priority) != 0:
+		    for i in priority:
+			for j in map[i]:
+			    self.MX.append(str(i) + " " + str(j))
+		else:
+		    self.MX.append(UNAVAIL)
 
 	def get_A(self):
 		ret = []
@@ -179,16 +177,6 @@ class DNS_Object:
 
 #===============================================================================
 # General Use functions
-def whois_NS_match(whois, prop):
-	try:
-		for entry in whois:
-			for ns in prop:
-				if(str(ns).lower().find(str(entry).lower()) != -1):	
-					return True
-		return False
-	except:
-		print("\t[?] Unable to check nameservers in WHOIS")#need better error message
-		return True
 
 def is_Obscured(ns):
 	for entry in ns:
@@ -196,20 +184,6 @@ def is_Obscured(ns):
 			if(str(entry).lower().find(str(o).lower()) != -1):
 				return True
 	return False
-
-def PvW_NS_mismatch_check(DNS): #Propagated Vs Whois Nameserver mismatch check
-        try:
-                if(DNS.whois_found):
-                        if(whois_NS_match(DNS.w.name_servers, DNS.NS) != True):
-                                print("\t[!] Warning: NS records do not match Registrar")
-                                for x in xrange(len(DNS.w.name_servers)):
-                                        print("\t[!] " + str(DNS.w.name_servers[x]).lower())
-        			return True
-			else:
-				return False
-	except:
-                print("[!]Can't get Nameserver info")
-		return False
 
 def whois_expiration(DNS):
         try:
@@ -239,16 +213,7 @@ def registrar_info(DNS):
         	print("\t[?] Registrar not available in standard whois lookup")
 
 def status_info(DNS):
-	'''
-	Currently shows all domain status messages from whois
-	May need to scale back to previous version of this 
-	method if found to be too verbose, or limit what
-	messages are displayed
-	'''
 	try:
-        	#if "ok" not in DNS.w.status:
-                #	print("\t[!] Domain Status Alert")
-                #        print("\t\t" + DNS.w.status)
 		if "ok" not in DNS.w.status:
 		    for status in DNS.w.status:
 			for alert in StatusAlert:
@@ -275,8 +240,6 @@ def status_info(DNS):
 def print_whois(DNS):
     if(DNS.whois_found != True):
 	print("\t[!] Warning: Domain registration details not found...\n\n")
-    #if(is_Obscured(DNS.NS)):
-	#print("\t[!] Warning DNS may be obscured and/or hidden")
     whois_expiration(DNS)
     registrar_info(DNS)
     if(is_Obscured(DNS.NS)):
