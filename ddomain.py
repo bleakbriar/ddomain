@@ -234,7 +234,20 @@ def status_info(DNS):
 					print("\t\t" + entry[0:index])
 		except:			
 			print("[?] Domain status unavailable")
-        
+       
+def whois_ns_mismatch(DNS):
+    try:
+	ret = False
+	for r_ns in DNS.w.name_servers:
+	    for p_ns in DNS.NS:
+		p_ns = p_ns[:-1]
+		if p_ns.lower() == r_ns.lower():
+		    ret = True
+	return ret
+    except:
+	print("mismatch check failed")
+	return False
+
 # Methods to print blocks of data
 
 def print_whois(DNS):
@@ -246,9 +259,20 @@ def print_whois(DNS):
 	print("\t[!] Warning: DNS may be obscured and/or hidden")
     status_info(DNS)
     print
+    print_ns_warning(DNS)
+    print
+
+def print_ns_warning(DNS):
+    if whois_ns_mismatch(DNS) == False:
+	print("\n\n Warning: Possible mismatch in NS records and registrar nameservers")
+	NSlist = []
+	for i in DNS.w.name_servers:
+	    NSlist.append(i.lower())
+	NSlist = list(set(NSlist))
+	for i in NSlist:
+	    print("\n\n [!] " + i)
 
 def print_records(DNS):
-        print
 	for i in range(len(DNS.A)):
 	    print('[A] %s  <==>  [rDNS] %s' % (DNS.A[i], DNS.rDNS[i]))
 	print
