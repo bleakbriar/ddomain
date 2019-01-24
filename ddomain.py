@@ -1,10 +1,13 @@
 #!/usr/bin/python
 '''
 Custom DNS lookup Tool, DDomain
-Version 5.3
+Version 5.4
+
+Provides quick lookup of relevant DNS records for a given domain
+to help in troubleshooting DNS related issues
 
 Author:  Bleakbriar
-Last modified 12/21/2018
+Last modified 1/24/2019
 
 '''
 
@@ -15,6 +18,8 @@ import datetime
 import argparse
 
 # ======================================================================
+# Version number
+VERSION = "5.4"
 # Unavailable record message
 UNAVAIL = "-----"
 # List of nameservers to warn user could be obscuring DNS of domain
@@ -27,7 +32,6 @@ Object for looking up and storing DNS information
 for the domain of interest. Stores A, rDNS for 
 all A, MX, and NS records using its own DNS 
 resolver object
- 
 '''
 class DNS_Object:
 	def __init__(self, domain):
@@ -174,9 +178,10 @@ class DNS_Object:
 		except:
 			ret.append(UNAVAIL)
 			return ret
-
-#===============================================================================
-# General Use functions
+'''
+================================================================================
+General use functions, predominantly related to printing information
+'''
 
 def is_Obscured(ns):
 	for entry in ns:
@@ -185,14 +190,27 @@ def is_Obscured(ns):
 				return True
 	return False
 
+def whois_ns_mismatch(DNS):
+    try:
+     	ret = False
+        for r_ns in DNS.w.name_servers:
+	    for p_ns in DNS.NS:
+		p_ns = p_ns[:-1]
+                if p_ns.lower() == r_ns.lower():
+     		    ret = True
+        return ret
+    except:
+        return False
+
+
 def whois_expiration(DNS):
         try:
-        	print(DNS.domain.upper() + " expires " + str(DNS.w.expiration_date[0]))
+        	print("\t[[" + DNS.domain.upper() + "]]" + "\n[Expiration]   " + str(DNS.w.expiration_date[0]))
                 if(DNS.w.expiration_date[0] < datetime.datetime.now()):
                 	print("\t[!] Domain expired")
      	except:
         	try:
-                	print(DNS.domain + " expires " + str(DNS.w.expiration_date))
+                	print("\t[[" + DNS.domain.upper() + "]]" + "\n[Expiration]   " + str(DNS.w.expiration_date))
                         if(DNS.w.expiration_date < datetime.datetime.now()):
                         	print("\t[!] Domain expired")
              	except:
@@ -200,15 +218,17 @@ def whois_expiration(DNS):
 
 def registrar_info(DNS):
 	try:
-        	# Registrar info is listed differently
-                #       depending on the registrar name 
-                #       and which whois repo it's being
-                #       pulled from, so two methods     
-                #       are needed to print properly
+		'''
+        	Registrar info is listed differently
+		    depending on the registrar name 
+		    and which whois repo it's being
+		    pulled from, so two methods     
+		    are needed to print properly
+		'''
                 if(len(str(DNS.w.registrar[1])) == 1):
-                	print("Registered with " + str(DNS.w.registrar) + "\n")
+                	print("[Registrar]   " + str(DNS.w.registrar) + "\n")
                 else:
-                        print("Registered with " + str(DNS.w.registrar[1]) + "\n")
+                        print("[Registrar]   " + str(DNS.w.registrar[1]) + "\n")
 	except:
         	print("\t[?] Registrar not available in standard whois lookup")
 
@@ -233,22 +253,8 @@ def status_info(DNS):
 					index = entry.find(" ")
 					print("\t\t" + entry[0:index])
 		except:			
-			print("[?] Domain status unavailable")
+			print("\t[?] Domain status unavailable")
        
-def whois_ns_mismatch(DNS):
-    try:
-	ret = False
-	for r_ns in DNS.w.name_servers:
-	    for p_ns in DNS.NS:
-		p_ns = p_ns[:-1]
-		if p_ns.lower() == r_ns.lower():
-		    ret = True
-	return ret
-    except:
-	print("mismatch check failed")
-	return False
-
-# Methods to print blocks of data
 
 def print_whois(DNS):
     if(DNS.whois_found != True):
@@ -258,19 +264,22 @@ def print_whois(DNS):
     if(is_Obscured(DNS.NS)):
 	print("\t[!] Warning: DNS may be obscured and/or hidden")
     status_info(DNS)
-    print
     print_ns_warning(DNS)
     print
 
 def print_ns_warning(DNS):
     if whois_ns_mismatch(DNS) == False:
-	print("\n\n Warning: Possible mismatch in NS records and registrar nameservers")
-	NSlist = []
-	for i in DNS.w.name_servers:
-	    NSlist.append(i.lower())
-	NSlist = list(set(NSlist))
-	for i in NSlist:
-	    print("\n\n [!] " + i)
+    	try:
+	    if len(DNS.w.name_servers) != 0:
+		print("\t Warning: Possible mismatch in NS records and registrar nameservers")
+	    NSlist = []
+	    for i in DNS.w.name_servers:
+		NSlist.append(i.lower())
+	    NSlist = list(set(NSlist))
+	    for i in NSlist:
+		print("\t [!] " + i)
+	except:
+	     pass#passing as if there is any error, nothing should be printed
 
 def print_records(DNS):
 	for i in range(len(DNS.A)):
@@ -283,7 +292,6 @@ def print_records(DNS):
            print("[NS] " + entry)
 
 def print_email_records(DNS, skipMX = False):
-	print
 	if(not skipMX):
 	    for entry in DNS.MX:
 		print("[MX] " + entry)
@@ -298,7 +306,6 @@ def print_email_records(DNS, skipMX = False):
 	    print("[DKIM] " + entry)
 
 def print_detailed_email_records(DNS):
-	print
 	for i in range(len(DNS.MX)):
 	    print("[MX] " + DNS.MX[i])
 	    for j in range(len(DNS.MX_DNS[i].A)):
@@ -314,13 +321,15 @@ def print_detailed_email_records(DNS):
 	    print("[DKIM] " + entry)
 
 
-
-# Main Function ==============================================================
-def main(args): # Main function
+'''
+==============================================================================
+Main Function
+'''
+def main(args):
 	# Banner
 	print("+" + "=" * 37 + "+")
 	print("|" + " " * 37 + "|")
-	print("|" + " " * 10 + "[[ DDomain 5.3 ]]" + " " * 10 + "|")
+	print("|" + " " * 10 + "[[ DDomain " + VERSION + " ]]" + " " * 10 + "|")
 	print("|" + " " * 37 + "|")
 	print("+" + "=" * 37 + "+") 
 
@@ -331,6 +340,7 @@ def main(args): # Main function
 	    DNS.get_whois_records()
 	    print_whois(DNS)
 	    print_records(DNS)
+	    print
 	    print_email_records(DNS, True)
 	    print
 	else:
@@ -352,6 +362,8 @@ def main(args): # Main function
 		print_whois(DNS)
 		print_records(DNS)
 		print
+
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Multipurpose domain detective and DNS lookup tool')
